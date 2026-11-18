@@ -27,14 +27,15 @@ C: ▬▬ 120/240  20/30
 
 Gdy dyski nie mieszczą się w jednym rzędzie, pasek zawija je na kolejne rzędy i sam rezerwuje więcej miejsca na ekranie. Pozycje są wyrównane w kolumny, więc nic nie skacze przy zmianie wartości.
 
-Orientacyjnie (przy skalowaniu 100%):
+Każdy kolejny rząd dodaje 20 punktów wysokości.
 
-| Szerokość ekranu | Dysków w rzędzie | 24 dyski |
-| --- | --- | --- |
-| 1920 px | ok. 10 | 3 rzędy (68 px) |
-| 1536 px | ok. 7–8 | 4 rzędy (88 px) |
+### Automatyczne skalowanie
 
-Każdy kolejny rząd dodaje 20 px wysokości.
+Domyślnie włączone (menu pod prawym przyciskiem → „Automatyczne skalowanie”).
+
+- Na ekranie węższym niż 1920 punktów pasek zmniejsza się proporcjonalnie, najwyżej do 75%. Przykład: monitor 1920 px ze skalowaniem Windows 125% ma tylko 1536 punktów, więc pasek dostaje skalę 80%.
+- Jeśli zmniejszenie o kolejne kilka procent (w sumie najwyżej o 15%, nie poniżej 75%) oszczędzi jeden rząd, pasek też to zrobi.
+- Każdy monitor liczy swoją skalę osobno.
 
 Pokazywane są dyski typu „stały” o pojemności co najmniej 1 GB, w tym dyski USB w obudowach (Windows widzi je jako stałe). Pendrive'y i czytniki kart (dyski wymienne) oraz dyski sieciowe są pomijane.
 
@@ -44,7 +45,7 @@ Pokazywane są dyski typu „stały” o pojemności co najmniej 1 GB, w tym dys
 - **Jeśli działa SysBar, DiskBar sam ustawia się pod nim**: każdy pasek dostaje osobny pas ekranu, więc nigdy na siebie nie nachodzą.
 - Jeden pasek na każdym monitorze. Po podłączeniu lub odłączeniu monitora paski dodają się i usuwają same.
 - Obsługuje monitory o różnym skalowaniu (DPI) i chowa się pod aplikacje pełnoekranowe.
-- Menu pod prawym przyciskiem myszy: góra / dół ekranu, **rozmiary w MB** (zamiast GB/TB), „Uruchamiaj z Windows”, „Zamknij”.
+- Menu pod prawym przyciskiem myszy: góra / dół ekranu, **rozmiary w MB** (zamiast GB/TB), „Automatyczne skalowanie”, „Uruchamiaj z Windows”, „Zamknij”.
 
 ## Instalacja
 

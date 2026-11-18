@@ -283,8 +283,16 @@ namespace DiskBar
         string layoutKey;
         double cellWidth;   // wspolna szerokosc kolumny (rosnie, zeby pozycje nie skakaly)
         int rows = 1;
+        int applyCount;
 
-        double BarHeight { get { return rows <= 1 ? SingleRowHeight : rows * RowHeight + RowPadding; } }
+        // Automatyczne skalowanie: na ekranie wezszym niz 1920 punktow pasek zmniejsza sie
+        // proporcjonalnie (min. MinScale), a jesli dalsze lekkie zmniejszenie oszczedzi rzad - tez.
+        const double RefWidth = 1920;
+        const double MinScale = 0.75;
+        readonly ScaleTransform zoom = new ScaleTransform(1, 1);
+        double scale = 1;
+
+        double BarHeight { get { return (rows <= 1 ? SingleRowHeight : rows * RowHeight + RowPadding) * scale; } }
 
         IntPtr hwnd;
         uint callbackMsg, taskbarCreatedMsg;
@@ -325,9 +333,10 @@ namespace DiskBar
             items.Orientation = Orientation.Horizontal;
             items.VerticalAlignment = VerticalAlignment.Center;
             items.Margin = new Thickness(0, 0, 16, 0);
-            items.SizeChanged += delegate { UpdateRows(); };
             root.Children.Add(items);
+            root.LayoutTransform = zoom;
             Content = root;
+            SizeChanged += delegate { UpdateRows(); };
 
             BuildMenu();
 
@@ -411,13 +420,24 @@ namespace DiskBar
             }
 
             summary.Text = "Σ " + ShortSize(s.TotalFree) + "/" + ShortSize(s.TotalAll);
+            // co minute kolumny moga sie z powrotem zwezic (np. po chwilowym duzym transferze)
+            if (++applyCount % 60 == 0) cellWidth = 0;
             UpdateRows();
         }
 
-        // Wyrownuje pozycje w kolumny i liczy, ile rzedow potrzeba; przy zmianie zmienia wysokosc paska.
-        void UpdateRows()
+        // Ile rzedow potrzeba przy danej skali (szerokosci liczone w punktach przed skalowaniem).
+        int RowsAt(double s, double summaryWidth)
         {
-            if (cells.Count == 0) return;
+            // 24 = margines paska (2x12), 32 = odstepy miedzy dyskami a podsumowaniem (2x16)
+            double avail = ActualWidth / s - 24 - summaryWidth - 32;
+            int cols = Math.Max(1, (int)Math.Floor(avail / (cellWidth + Cell.Gap)));
+            return (cells.Count + cols - 1) / cols;
+        }
+
+        // Wyrownuje pozycje w kolumny, dobiera skale i liczy rzedy; przy zmianie zmienia wysokosc paska.
+        public void UpdateRows()
+        {
+            if (cells.Count == 0 || ActualWidth <= 0) return;
             double w = cellWidth;
             foreach (Cell c in cells)
             {
@@ -428,13 +448,27 @@ namespace DiskBar
             cellWidth = Math.Ceiling(w);
             foreach (Cell c in cells) c.Root.Width = cellWidth;
 
-            double avail = items.ActualWidth;
-            if (avail <= 0) return;
-            int cols = Math.Max(1, (int)Math.Floor(avail / (cellWidth + Cell.Gap)));
-            int need = (cells.Count + cols - 1) / cols;
-            if (need != rows)
+            summary.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+            double sw = summary.DesiredSize.Width;
+
+            double best = 1;
+            if (Bars.AutoScale) best = Math.Max(MinScale, Math.Min(1, ActualWidth / RefWidth));
+            int bestRows = RowsAt(best, sw);
+            if (Bars.AutoScale)
             {
-                rows = need;
+                double floor = Math.Max(MinScale, best * 0.85);
+                for (double s = best - 0.05; s >= floor - 0.001; s -= 0.05)
+                {
+                    int r = RowsAt(s, sw);
+                    if (r < bestRows) { best = s; bestRows = r; }
+                }
+            }
+
+            if (Math.Abs(best - scale) > 0.001 || bestRows != rows)
+            {
+                scale = best;
+                zoom.ScaleX = zoom.ScaleY = best;
+                rows = bestRows;
                 QueueDock();
             }
         }
@@ -492,6 +526,12 @@ namespace DiskBar
                 mb.IsChecked = Bars.ShowMB;
                 mb.Click += delegate { Bars.SetShowMB(!Bars.ShowMB); };
                 menu.Items.Add(mb);
+
+                MenuItem sc = new MenuItem();
+                sc.Header = "Automatyczne skalowanie";
+                sc.IsChecked = Bars.AutoScale;
+                sc.Click += delegate { Bars.SetAutoScale(!Bars.AutoScale); };
+                menu.Items.Add(sc);
 
                 MenuItem auto = new MenuItem();
                 auto.Header = "Uruchamiaj z Windows";
@@ -723,6 +763,7 @@ namespace DiskBar
 
         public static bool Bottom;
         public static bool ShowMB;
+        public static bool AutoScale = true;
 
         public static void Start()
         {
@@ -734,6 +775,7 @@ namespace DiskBar
                     {
                         Bottom = Convert.ToInt32(k.GetValue("Bottom", 0)) != 0;
                         ShowMB = Convert.ToInt32(k.GetValue("ShowMB", 0)) != 0;
+                        AutoScale = Convert.ToInt32(k.GetValue("AutoScale", 1)) != 0;
                     }
             }
             catch { }
@@ -762,6 +804,13 @@ namespace DiskBar
         {
             ShowMB = on;
             Save("ShowMB", on);
+        }
+
+        public static void SetAutoScale(bool on)
+        {
+            AutoScale = on;
+            Save("AutoScale", on);
+            foreach (BarWindow w in windows) w.UpdateRows();
         }
 
         static void Save(string name, bool val)
