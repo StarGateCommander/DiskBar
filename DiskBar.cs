@@ -195,8 +195,8 @@ namespace DiskBar
         readonly TextBlock size = new TextBlock();
         readonly TextBlock speed = new TextBlock();
         readonly Border fill = new Border();
-        const double MeterWidth = 28;
-        public const double Gap = 14; // odstep miedzy pozycjami
+        const double MeterWidth = 22;
+        public const double Gap = 12; // odstep miedzy pozycjami
 
         static readonly Brush Dim = Frozen("#9A9AA2");
         static readonly Brush Text = Frozen("#F2F2F4");
@@ -212,7 +212,8 @@ namespace DiskBar
             return b;
         }
 
-        public Cell(string label)
+        // big = dysk od 1000 GB (rozmiar zapisywany w TB, np. 1.3T/1.9T - szersze pole).
+        public Cell(string label, bool big)
         {
             Root.Orientation = Orientation.Horizontal;
             Root.VerticalAlignment = VerticalAlignment.Center;
@@ -220,8 +221,18 @@ namespace DiskBar
             Root.Height = BarWindow.RowHeight;
             Root.Background = Brushes.Transparent; // dymek na calej pozycji
 
+            // Stale szerokosci pol (liczone dla najdluzszego mozliwego zapisu danego dysku),
+            // zeby uklad nie zalezal od biezacych wartosci i pozycje nie przeskakiwaly miedzy rzedami.
+            double labelW = TextWidth(FontWeights.SemiBold, label);
+            double sizeW = Bars.ShowMB
+                ? TextWidth(FontWeights.SemiBold, big ? "8888888/8888888" : "888888/888888")
+                : big ? TextWidth(FontWeights.SemiBold, "8.8T/8.8T", "88T/88T", "888/8.8T", "888/88T")
+                      : TextWidth(FontWeights.SemiBold, "888/888");
+            double speedW = TextWidth(FontWeights.Normal, "888/888");
+
             TextBlock l = new TextBlock();
             l.Text = label;
+            l.Width = labelW;
             l.Foreground = Dim;
             l.FontWeight = FontWeights.SemiBold;
             l.VerticalAlignment = VerticalAlignment.Center;
@@ -232,7 +243,7 @@ namespace DiskBar
             track.Height = 5;
             track.CornerRadius = new CornerRadius(2.5);
             track.Background = Track;
-            track.Margin = new Thickness(5, 1, 0, 0);
+            track.Margin = new Thickness(Space, 1, 0, 0);
             track.VerticalAlignment = VerticalAlignment.Center;
             fill.HorizontalAlignment = HorizontalAlignment.Left;
             fill.CornerRadius = new CornerRadius(2.5);
@@ -240,18 +251,41 @@ namespace DiskBar
             track.Child = fill;
             Root.Children.Add(track);
 
+            size.Width = sizeW;
             size.Foreground = Text;
             size.FontWeight = FontWeights.SemiBold;
-            size.Margin = new Thickness(5, 0, 0, 0);
+            size.Margin = new Thickness(Space, 0, 0, 0);
             size.VerticalAlignment = VerticalAlignment.Center;
             size.Text = "–";
             Root.Children.Add(size);
 
+            speed.Width = speedW;
             speed.Foreground = Dim;
-            speed.MinWidth = 34; // stala szerokosc - pasek nie skacze przy zmianie predkosci
-            speed.Margin = new Thickness(6, 0, 0, 0);
+            speed.Margin = new Thickness(Space, 0, 0, 0);
             speed.VerticalAlignment = VerticalAlignment.Center;
             Root.Children.Add(speed);
+
+            Width = labelW + Space + MeterWidth + Space + sizeW + Space + speedW;
+            Root.Width = Width;
+        }
+
+        public readonly double Width; // stala szerokosc pozycji (bez odstepu Gap)
+        const double Space = 4;
+
+        public static double TextWidth(FontWeight weight, params string[] samples)
+        {
+            double w = 0;
+            foreach (string s in samples)
+            {
+                TextBlock t = new TextBlock();
+                t.Text = s;
+                t.FontFamily = new FontFamily(BarWindow.Font);
+                t.FontSize = BarWindow.FontPx;
+                t.FontWeight = weight;
+                t.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+                w = Math.Max(w, t.DesiredSize.Width);
+            }
+            return Math.Ceiling(w) + 1;
         }
 
         public void Set(double pct, string sizeText, string speedText, string tip)
@@ -276,14 +310,17 @@ namespace DiskBar
         public const double RowHeight = 20;
         const double RowPadding = 8;
         const string RunPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        public const string Font = "Segoe UI Variable Text, Segoe UI";
+        public const double FontPx = 12.5;
 
         readonly WrapPanel items = new WrapPanel();
         readonly TextBlock summary = new TextBlock();
         readonly List<Cell> cells = new List<Cell>();
         string layoutKey;
-        double cellWidth;   // wspolna szerokosc kolumny (rosnie, zeby pozycje nie skakaly)
+        static bool IsBig(DiskInfo d) { return d.Total / 1073741824.0 >= 999.5; }
         int rows = 1;
-        int applyCount;
+
+        public void ResetLayout() { layoutKey = null; } // przebudowa przy nastepnym pomiarze
 
         // Automatyczne skalowanie: na ekranie wezszym niz 1920 punktow pasek zmniejsza sie
         // proporcjonalnie (min. MinScale), a jesli dalsze lekkie zmniejszenie oszczedzi rzad - tez.
@@ -314,8 +351,8 @@ namespace DiskBar
             WindowStartupLocation = WindowStartupLocation.Manual;
             Left = 0; Top = 0; Width = 800; Height = BarHeight;
             Background = Cell.Frozen("#1C1C20");
-            FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
-            FontSize = 12.5;
+            FontFamily = new FontFamily(Font);
+            FontSize = FontPx;
             UseLayoutRounding = true;
             TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
 
@@ -327,6 +364,8 @@ namespace DiskBar
             summary.FontWeight = FontWeights.SemiBold;
             summary.VerticalAlignment = VerticalAlignment.Center;
             summary.Margin = new Thickness(16, 0, 0, 0);
+            summary.MinWidth = Cell.TextWidth(FontWeights.SemiBold, "Σ 88T/88T", "Σ 8.8T/8.8T");
+            summary.TextAlignment = TextAlignment.Right;
             DockPanel.SetDock(summary, Dock.Right);
             root.Children.Add(summary);
 
@@ -379,6 +418,7 @@ namespace DiskBar
         {
             double mb = bytesPerSec / 1048576.0;
             if (mb < 0.05) return "0";
+            if (mb >= 999.5) return Math.Max(1, Math.Round(mb / 1024.0)).ToString("0", CultureInfo.InvariantCulture) + "G"; // szybkie NVMe: 3G (dokladnie w dymku)
             return mb.ToString(mb < 10 ? "0.0" : "0", CultureInfo.InvariantCulture);
         }
 
@@ -386,10 +426,9 @@ namespace DiskBar
         {
             items.Children.Clear();
             cells.Clear();
-            cellWidth = 0;
             foreach (DiskInfo d in s.Disks)
             {
-                Cell c = new Cell(d.Name);
+                Cell c = new Cell(d.Name, IsBig(d));
                 cells.Add(c);
                 items.Children.Add(c.Root);
             }
@@ -398,7 +437,7 @@ namespace DiskBar
         public void Apply(Snapshot s)
         {
             StringBuilder key = new StringBuilder();
-            foreach (DiskInfo d in s.Disks) key.Append(d.Name).Append('|');
+            foreach (DiskInfo d in s.Disks) key.Append(d.Name).Append(IsBig(d) ? "+" : "").Append('|');
             if (key.ToString() != layoutKey)
             {
                 layoutKey = key.ToString();
@@ -420,8 +459,6 @@ namespace DiskBar
             }
 
             summary.Text = "Σ " + ShortSize(s.TotalFree) + "/" + ShortSize(s.TotalAll);
-            // co minute kolumny moga sie z powrotem zwezic (np. po chwilowym duzym transferze)
-            if (++applyCount % 60 == 0) cellWidth = 0;
             UpdateRows();
         }
 
@@ -430,23 +467,23 @@ namespace DiskBar
         {
             // 24 = margines paska (2x12), 32 = odstepy miedzy dyskami a podsumowaniem (2x16)
             double avail = ActualWidth / s - 24 - summaryWidth - 32;
-            int cols = Math.Max(1, (int)Math.Floor(avail / (cellWidth + Cell.Gap)));
-            return (cells.Count + cols - 1) / cols;
+            // tak samo jak WrapPanel: pozycja, ktora sie nie miesci, przechodzi do nowego rzedu
+            int n = 1;
+            double line = 0;
+            foreach (Cell c in cells)
+            {
+                double w = c.Width + Cell.Gap;
+                if (line > 0 && line + w > avail) { n++; line = 0; }
+                line += w;
+            }
+            return n;
         }
 
-        // Wyrownuje pozycje w kolumny, dobiera skale i liczy rzedy; przy zmianie zmienia wysokosc paska.
+        // Dobiera skale i liczy rzedy; przy zmianie zmienia wysokosc paska.
+        // Szerokosci pozycji sa stale, wiec wynik nie zalezy od biezacych wartosci (brak migotania).
         public void UpdateRows()
         {
             if (cells.Count == 0 || ActualWidth <= 0) return;
-            double w = cellWidth;
-            foreach (Cell c in cells)
-            {
-                c.Root.Width = double.NaN;
-                c.Root.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
-                w = Math.Max(w, c.Root.DesiredSize.Width - c.Root.Margin.Right);
-            }
-            cellWidth = Math.Ceiling(w);
-            foreach (Cell c in cells) c.Root.Width = cellWidth;
 
             summary.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
             double sw = summary.DesiredSize.Width;
@@ -804,6 +841,7 @@ namespace DiskBar
         {
             ShowMB = on;
             Save("ShowMB", on);
+            foreach (BarWindow w in windows) w.ResetLayout();
         }
 
         public static void SetAutoScale(bool on)

@@ -17,7 +17,7 @@ C: ▬▬ 120/240  20/30
 | `C:` | litera dysku |
 | ▬▬ | pasek zajętości: zielony, od 75% żółty, od 90% czerwony |
 | `120/240` | wolne / całkowite w GB. Od 1000 GB z „T”, np. `1.8T/3.6T` |
-| `20/30` | odczyt / zapis w MB/s (poniżej 10 MB/s z jednym miejscem po przecinku) |
+| `20/30` | odczyt / zapis w MB/s (poniżej 10 MB/s z jednym miejscem po przecinku, od 1000 MB/s w GB/s, np. `3G`) |
 
 - Po najechaniu myszą na dysk pojawia się dymek z pełnymi danymi: etykieta woluminu, procent zajętości, wolne miejsce z jednostkami, odczyt i zapis.
 - Po prawej jest podsumowanie: łączne wolne / całkowite miejsce na wszystkich dyskach (`Σ`).
@@ -25,7 +25,7 @@ C: ▬▬ 120/240  20/30
 
 ## Dużo dysków
 
-Gdy dyski nie mieszczą się w jednym rzędzie, pasek zawija je na kolejne rzędy i sam rezerwuje więcej miejsca na ekranie. Pozycje są wyrównane w kolumny, więc nic nie skacze przy zmianie wartości.
+Gdy dyski nie mieszczą się w jednym rzędzie, pasek zawija je na kolejne rzędy i sam rezerwuje więcej miejsca na ekranie. Każde pole ma stałą szerokość, liczoną dla najdłuższego możliwego zapisu, więc układ nie zmienia się przy zmianie wartości i dyski nie przeskakują między rzędami.
 
 Każdy kolejny rząd dodaje 20 punktów wysokości.
 
