@@ -13,15 +13,15 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("DiskBar - instalator")]
 [assembly: AssemblyProduct("DiskBar")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 namespace DiskBarSetup
 {
     static class Program
     {
         const string AppName = "DiskBar";
-        const string Version = "1.2.0";
+        const string Version = "1.1.0";
         const string RunPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         const string UninstallPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\DiskBar";
         const string SettingsPath = @"Software\DiskBar";
